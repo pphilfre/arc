@@ -32,7 +32,7 @@ def read_env(path):
 def configure(env_file, output):
     values = read_env(env_file)
     # CI environment always takes precedence over a local file.
-    for key in ("MAPBOX_ACCESS_TOKEN", "ARC_BUNDLE_IDENTIFIER"):
+    for key in ("MAPBOX_ACCESS_TOKEN", "ARC_BUNDLE_IDENTIFIER", "ARC_BUILD_ENVIRONMENT", "ARC_HIDE_MAP_ATTRIBUTION"):
         if key in os.environ:
             values[key] = os.environ[key]
     if values.get("ARC_BUNDLE_IDENTIFIER", BUNDLE_ID) != BUNDLE_ID:
@@ -43,6 +43,11 @@ def configure(env_file, output):
     with (ROOT / "Config/Arc-Info.template.plist").open("rb") as stream:
         info = plistlib.load(stream)
     info["MBXAccessToken"] = token
+    environment = values.get("ARC_BUILD_ENVIRONMENT", "production")
+    if environment not in ("development", "production"):
+        raise ValueError("ARC_BUILD_ENVIRONMENT must be development or production")
+    info["ArcDevelopmentMode"] = environment == "development"
+    info["ArcHideMapAttribution"] = environment == "development" and values.get("ARC_HIDE_MAP_ATTRIBUTION", "false").lower() == "true"
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as stream:
         plistlib.dump(info, stream, sort_keys=False)

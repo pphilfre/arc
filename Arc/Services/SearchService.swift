@@ -32,6 +32,9 @@ struct SearchCategory: Identifiable {
     var rows: [SearchRow] = []
     var places: [Place] = []
     var busy = false
+    var activeCategory: SearchCategory?
+    var submittedQuery: String?
+    private var acceptingCallbacks = false
     var error: String?
     var onSelect: ((Place) -> Void)?
     private var selecting = false
@@ -39,8 +42,14 @@ struct SearchCategory: Identifiable {
     private var detailRequests: [UUID: PlaceDetailsRequest] = [:]
 
     override init() { super.init(); engine.delegate = self }
+    func clear() {
+        generation += 1; acceptingCallbacks = false; selecting = false
+        rows = []; places = []; busy = false; error = nil; activeCategory = nil; submittedQuery = nil
+    }
     func search(_ query: String, proximity: CLLocationCoordinate2D?) {
         generation += 1
+        activeCategory = nil
+        acceptingCallbacks = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         selecting = false
         error = nil
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -52,12 +61,14 @@ struct SearchCategory: Identifiable {
     }
     func select(_ row: SearchRow) {
         selecting = true
+        acceptingCallbacks = true
         busy = true
         engine.select(suggestion: row.suggestion, options: RetrieveOptions(attributeSets: [.basic, .photos, .visit]))
     }
     func submit(_ query: String, proximity: CLLocationCoordinate2D?) {
         generation += 1
         let current = generation
+        activeCategory = nil; submittedQuery = query; acceptingCallbacks = false
         busy = true; rows = []; places = []; error = nil
         engine.forward(query: query, options: SearchOptions(proximity: proximity)) { [weak self] result in
             Task { @MainActor in
@@ -71,7 +82,10 @@ struct SearchCategory: Identifiable {
         }
     }
     func category(_ category: SearchCategory, proximity: CLLocationCoordinate2D?) {
+        if activeCategory?.id == category.id { clear(); return }
         generation += 1
+        acceptingCallbacks = false
+        activeCategory = category
         let current = generation
         rows = []; places = []; busy = true; error = nil
         categoryEngine.search(categoryName: category.key, options: SearchOptions(proximity: proximity)) { [weak self] result in
@@ -107,7 +121,16 @@ struct SearchCategory: Identifiable {
         let id = UUID()
         let request = PlaceDetailsRequest { [weak self] result in
             self?.detailRequests[id] = nil
-            completion(result.map(Self.place) ?? place)
+            var enriched = result.map(Self.place) ?? place
+            guard enriched.openingSchedule?.availability == .scheduled else { completion(enriched); return }
+            let geocoder = CLGeocoder()
+            geocoder.reverseGeocodeLocation(enriched.location) { [geocoder] placemarks, _ in
+                _ = geocoder
+                Task { @MainActor in
+                    enriched.openingSchedule?.timeZoneIdentifier = placemarks?.first?.timeZone?.identifier
+                    completion(enriched)
+                }
+            }
         }
         detailRequests[id] = request
         request.start(mapboxID)
@@ -126,41 +149,50 @@ struct SearchCategory: Identifiable {
         }
     }
     func suggestionsUpdated(suggestions: [any SearchSuggestion], searchEngine: SearchEngine) {
+        guard acceptingCallbacks else { return }
         rows = suggestions.map { SearchRow(suggestion: $0) }
         busy = false
         // Search Box suggestions resolve on selection. Submit uses forward search for map markers.
     }
     func resultResolved(result: any SearchResult, searchEngine: SearchEngine) {
+        guard acceptingCallbacks else { return }
         busy = false
         let place = Self.place(result)
         places = [place]
         if selecting { selecting = false; onSelect?(place) }
     }
     func resultsResolved(results: [any SearchResult], searchEngine: SearchEngine) {
+        guard acceptingCallbacks else { return }
         if !selecting { places = results.map(Self.place); busy = false }
     }
     func searchErrorHappened(searchError: SearchError, searchEngine: SearchEngine) {
+        guard acceptingCallbacks else { return }
         busy = false
         error = "Search is unavailable. Check your connection and try again."
     }
     static func place(_ result: any SearchResult) -> Place {
         let metadata = result.metadata
-        var hours: String?
+        var schedule: OpeningSchedule?
         if let openHours = metadata?.openHours {
             switch openHours {
-            case .alwaysOpened: hours = "Open 24 hours"
-            case .temporarilyClosed: hours = "Temporarily closed"
-            case .permanentlyClosed: hours = "Permanently closed"
-            case .scheduled(_, let weekdayText, let note):
-                hours = note ?? weekdayText?.joined(separator: "\n")
+            case .alwaysOpened: schedule = .init(availability: .alwaysOpen)
+            case .temporarilyClosed: schedule = .init(availability: .temporarilyClosed)
+            case .permanentlyClosed: schedule = .init(availability: .permanentlyClosed)
+            case .scheduled(let periods, _, let note):
+                schedule = .init(availability: .scheduled, periods: periods.compactMap { period in
+                    guard let startDay = period.start.weekday, let endDay = period.end.weekday,
+                          let startHour = period.start.hour, let endHour = period.end.hour else { return nil }
+                    return OpeningPeriod(weekday: startDay, startMinute: startHour * 60 + (period.start.minute ?? 0),
+                        endWeekday: endDay, endMinute: endHour * 60 + (period.end.minute ?? 0))
+                }, note: note)
             }
         }
         return Place(id: result.mapboxId ?? result.id, name: result.name,
             latitude: result.coordinate.latitude, longitude: result.coordinate.longitude,
-            address: result.address?.formattedAddress(style: .medium) ?? result.descriptionText ?? "",
+            address: AddressFormatting.natural(result.address?.formattedAddress(style: .medium) ?? result.descriptionText ?? ""),
             category: result.categories?.first ?? "Place", phone: metadata?.phone,
             website: metadata?.website, imageURL: metadata?.primaryImage?.sizes.first?.url,
-            openingInformation: hours, mapboxID: result.mapboxId)
+            openingSchedule: schedule, mapboxID: result.mapboxId)
     }
 }
 

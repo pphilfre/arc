@@ -8,9 +8,6 @@ struct DirectionsSheet: View {
         NavigationStack {
             List {
                 Section {
-                    Picker("Travel mode", selection: $model.mode) {
-                        ForEach(TravelMode.allCases) { mode in Label(mode.rawValue, systemImage: mode.symbol).tag(mode) }
-                    }.pickerStyle(.segmented).listRowBackground(Color.clear)
                     Button { model.openSearch(.origin) } label: {
                         Label(model.origin?.name ?? "My Location", systemImage: "location.circle")
                     }
@@ -66,9 +63,25 @@ struct DirectionsSheet: View {
                     }
                 }
             }
-            .navigationTitle("Directions").navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
+            .scrollContentBackground(.hidden)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Close") { model.cancelPlanning() } }
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 4) {
+                        ForEach(TravelMode.allCases) { mode in
+                            Button {
+                                model.mode = mode; model.haptic.tap()
+                            } label: {
+                                Image(systemName: mode.symbol).font(.system(size: 19, weight: .semibold))
+                                    .frame(width: 46, height: 36)
+                                    .foregroundStyle(model.mode == mode ? model.preferences.accent.color : Color.secondary)
+                                    .background(model.mode == mode ? model.preferences.accent.color.opacity(0.12) : .clear, in: Capsule())
+                            }.buttonStyle(.plain).accessibilityLabel(mode.rawValue)
+                                .accessibilityAddTraits(model.mode == mode ? .isSelected : [])
+                        }
+                    }.glassEffect(.regular, in: .capsule)
+                }
                 ToolbarItem(placement: .topBarTrailing) { EditButton() }
             }
         }

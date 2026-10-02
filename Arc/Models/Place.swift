@@ -12,6 +12,7 @@ struct Place: Codable, Identifiable, Hashable, Sendable {
     var website: URL?
     var imageURL: URL?
     var openingInformation: String?
+    var openingSchedule: OpeningSchedule?
     var mapboxID: String?
 
     var coordinate: CLLocationCoordinate2D {

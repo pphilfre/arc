@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct SearchSheet: View {
     @Bindable var model: ArcModel
@@ -7,12 +8,17 @@ struct SearchSheet: View {
     @Query(sort: \SavedPlace.savedAt, order: .reverse) private var saved: [SavedPlace]
     @Environment(\.modelContext) private var context
     @FocusState private var focused: Bool
+    @State private var keyboardTop: CGFloat?
 
     var body: some View {
+        GeometryReader { geometry in
         VStack(spacing: 0) {
+            Capsule().fill(.secondary.opacity(0.35)).frame(width: 34, height: 5).padding(.top, 10)
+                .frame(maxWidth: .infinity).contentShape(Rectangle())
+                .gesture(DragGesture().onEnded { if $0.translation.height > 60 { model.dismissSearch() } })
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(prompt, text: $model.query).focused($focused)
+                TextField(prompt, text: $model.query).focused($focused).accessibilityIdentifier("search.query")
                     .submitLabel(.search).autocorrectionDisabled()
                     .onSubmit {
                         focused = false
@@ -20,11 +26,11 @@ struct SearchSheet: View {
                         model.search.submit(model.query, proximity: model.location.location?.coordinate)
                     }
                 if !model.query.isEmpty {
-                    Button { model.query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    Button { model.clearSearch() } label: { Image(systemName: "xmark.circle.fill") }
                         .foregroundStyle(.secondary).accessibilityLabel("Clear search")
                 }
-                Button("Done") { focused = false; model.searching = false }
-            }.padding(18)
+                Button("Done") { focused = false; model.dismissSearch() }.frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("search.done")
+            }.frame(minHeight: 52).padding(.horizontal, 18).padding(.vertical, 4)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     ScrollView(.horizontal) {
@@ -33,6 +39,7 @@ struct SearchSheet: View {
                                 Button {
                                     focused = false
                                     model.haptic.tap()
+                                    model.query = ""
                                     model.search.category(category, proximity: model.location.location?.coordinate)
                                     model.recordSearch(category.name)
                                 } label: {
@@ -40,6 +47,7 @@ struct SearchSheet: View {
                                         Image(systemName: category.symbol).font(.title3).frame(width: 52, height: 52)
                                             .glassEffect(.regular.interactive(), in: .circle)
                                         Text(category.name).font(.caption)
+                                        .foregroundStyle(model.search.activeCategory?.id == category.id ? model.preferences.accent.color : Color.primary)
                                     }.frame(width: 76)
                                 }.buttonStyle(.plain)
                             }
@@ -98,15 +106,25 @@ struct SearchSheet: View {
                     }
                 }.padding(.bottom, 24)
             }.scrollDismissesKeyboard(.interactively)
+            .safeAreaPadding(.bottom, keyboardTop.map { max(0, geometry.frame(in: .global).maxY - $0) } ?? 0)
         }
-        .task { focused = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+            guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) { keyboardTop = frame.minY }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) { keyboardTop = nil }
+        }
         .task(id: model.query) {
             if model.query.isEmpty {
+                guard model.search.activeCategory == nil else { return }
                 model.search.search("", proximity: model.location.location?.coordinate)
                 return
             }
             do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
             guard !Task.isCancelled else { return }
+            guard model.search.submittedQuery != model.query else { return }
             model.search.search(model.query, proximity: model.location.location?.coordinate)
         }
     }

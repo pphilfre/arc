@@ -85,9 +85,31 @@ struct SettingsForm: View {
                 Picker("Appearance", selection: $preferences.appearance) {
                     ForEach(Appearance.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented)
-                Picker("Accent", selection: $preferences.accent) {
-                    ForEach(Accent.allCases) { Label($0.rawValue, systemImage: "circle.fill").foregroundStyle($0.color).tag($0) }
-                }
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Accent").font(.subheadline)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 16) {
+                        ForEach(Accent.allCases) { accent in
+                            Button {
+                                preferences.accent = accent; model.haptic.tap()
+                            } label: {
+                                VStack(spacing: 8) {
+                                    Circle().fill(accent.color).frame(width: 32, height: 32)
+                                        .overlay {
+                                            if preferences.accent == accent {
+                                                Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
+                                                    .foregroundStyle(accent == .mono ? Color(.systemBackground) : Color.white)
+                                            }
+                                        }
+                                        .padding(4)
+                                        .overlay { Circle().strokeBorder(preferences.accent == accent ? accent.color : .clear, lineWidth: 1.5) }
+                                    Text(accent.rawValue).font(.caption).foregroundStyle(.primary)
+                                }.frame(maxWidth: .infinity, minHeight: 64).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            .accessibilityLabel(accent.rawValue)
+                            .accessibilityAddTraits(preferences.accent == accent ? .isSelected : [])
+                        }
+                    }
+                }.padding(.vertical, 8)
             }
             Section("Map") {
                 Picker("Map", selection: $preferences.satellite) { Text("Default").tag(false); Text("Satellite").tag(true) }

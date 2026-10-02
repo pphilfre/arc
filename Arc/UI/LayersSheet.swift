@@ -14,13 +14,19 @@ struct LayersSheet: View {
                 mapChoice("Default", symbol: "map.fill", satellite: false)
                 mapChoice("Satellite", symbol: "globe.europe.africa.fill", satellite: true)
             }
-            Toggle("3D", systemImage: "building.2.fill", isOn: $preferences.buildings)
-            Toggle("Traffic", systemImage: "car.side.fill", isOn: $preferences.traffic)
-            Toggle("Driving POIs", systemImage: "fuelpump.fill", isOn: $preferences.drivingPOIs)
+            layerRow("3D", symbol: "building.2.fill", isOn: $preferences.buildings)
+            layerRow("Traffic", symbol: "car.side.fill", isOn: $preferences.traffic)
+            layerRow("Driving POIs", symbol: "fuelpump.fill", isOn: $preferences.drivingPOIs)
         }.padding(26).padding(.top, 6)
         .onChange(of: model.preferences.buildings) { _, _ in model.haptic.tap(); model.command(.recenter) }
         .onChange(of: model.preferences.traffic) { _, _ in model.haptic.tap() }
         .onChange(of: model.preferences.drivingPOIs) { _, _ in model.haptic.tap() }
+    }
+    private func layerRow(_ title: String, symbol: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.system(size: 20, weight: .medium)).frame(width: 28, height: 28)
+            Toggle(title, isOn: isOn).font(.body)
+        }.frame(minHeight: 44)
     }
     private func mapChoice(_ title: String, symbol: String, satellite: Bool) -> some View {
         Button {
@@ -30,10 +36,13 @@ struct LayersSheet: View {
                 Image(systemName: symbol).font(.system(size: 30, weight: .medium))
                 HStack {
                     Text(title).font(.subheadline.weight(.semibold))
-                    if model.preferences.satellite == satellite { Image(systemName: "checkmark.circle.fill") }
+                    Image(systemName: "checkmark.circle.fill").opacity(model.displayedSatellite == satellite ? 1 : 0)
+                        .frame(width: 18)
                 }
+            }.overlay(alignment: .topTrailing) {
+                if model.mapStyleLoading && model.preferences.satellite == satellite { ProgressView().controlSize(.mini) }
             }.frame(maxWidth: .infinity).padding(.vertical, 18)
-                .glassEffect(.regular.tint(model.preferences.satellite == satellite ? model.preferences.accent.color.opacity(0.16) : .clear).interactive(), in: .rect(cornerRadius: 20))
+                .glassEffect(.regular.tint(model.displayedSatellite == satellite ? model.preferences.accent.color.opacity(0.16) : .clear).interactive(), in: .rect(cornerRadius: 20))
         }.buttonStyle(.plain)
     }
 }

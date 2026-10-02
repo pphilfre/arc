@@ -19,6 +19,15 @@ config = module("configure")
 ipa = module("package_ipa")
 
 class ConfigurationTests(unittest.TestCase):
+    def test_production_forces_attribution_on(self):
+        for environment, hidden in (("production", False), ("development", True)):
+            with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {
+                "MAPBOX_ACCESS_TOKEN": "pk.test", "ARC_BUILD_ENVIRONMENT": environment,
+                "ARC_HIDE_MAP_ATTRIBUTION": "true"
+            }, clear=True):
+                path = Path(temp) / "out.plist"
+                config.configure(Path(temp) / "missing", path)
+                self.assertEqual(plistlib.loads(path.read_bytes())["ArcHideMapAttribution"], hidden)
     def test_public_token_only_and_no_secret_in_logs(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {}, clear=True):
             root = Path(temp)
@@ -96,4 +105,3 @@ class PackagingTests(unittest.TestCase):
                 self.assertEqual(archive.read(entry), b"Example.framework")
 
 if __name__ == "__main__": unittest.main()
-

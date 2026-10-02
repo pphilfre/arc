@@ -4,6 +4,29 @@ import SwiftUI
 @testable import Arc
 
 final class ArcTests: XCTestCase {
+    func testOpeningHoursAcrossMidnightAndSplitPeriods() {
+        let schedule = OpeningSchedule(availability: .scheduled, periods: [
+            .init(weekday: 2, startMinute: 8 * 60, endWeekday: 2, endMinute: 12 * 60),
+            .init(weekday: 2, startMinute: 18 * 60, endWeekday: 3, endMinute: 2 * 60)
+        ], timeZoneIdentifier: "Europe/London")
+        let formatter = ISO8601DateFormatter()
+        XCTAssertEqual(schedule.status(at: formatter.date(from: "2026-10-05T10:00:00Z")!), "Open now · Closes 12:00")
+        XCTAssertEqual(schedule.status(at: formatter.date(from: "2026-10-05T14:00:00Z")!), "Closed now")
+        XCTAssertEqual(schedule.status(at: formatter.date(from: "2026-10-06T00:00:00Z")!), "Open now · Closes 02:00")
+        XCTAssertEqual(schedule.hours(for: 2), "08:00 – 12:00, 18:00 – 02:00")
+        XCTAssertEqual(schedule.hours(for: 4), "Closed")
+    }
+    func testNaturalAddressFormattingPreservesExistingNames() {
+        XCTAssertEqual(AddressFormatting.natural("10 high street, newcastle upon tyne, sw1a 1aa"), "10 High Street, Newcastle upon Tyne, SW1A 1AA")
+        XCTAssertEqual(AddressFormatting.natural("McDonald's, iPhone Store, UK"), "McDonald's, iPhone Store, UK")
+    }
+    func testTemporaryAnnotationsDoNotReplaceRetainedPins() {
+        let place = Place.pin(at: .init(latitude: 51, longitude: 0))
+        let retained = ArcAnnotation(place: place, role: .dropped)
+        let selected = ArcAnnotation(place: place, role: .selected)
+        XCTAssertEqual(ArcAnnotation.merge([[retained], [selected]]).first?.role, .selected)
+        XCTAssertEqual(ArcAnnotation.merge([[retained], []]).first?.role, .dropped)
+    }
     func testUnitsAndUnknownSpeed() {
         XCTAssertEqual(SpeedUnit.mph.speed(26.8224), 60)
         XCTAssertEqual(SpeedUnit.kmh.speed(10), 36)

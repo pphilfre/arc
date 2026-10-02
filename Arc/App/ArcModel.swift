@@ -11,7 +11,11 @@ import SwiftData
     @ObservationIgnored lazy var navigation = NavigationService(preferences: preferences)
     @ObservationIgnored lazy var haptic = HapticService(preferences: preferences)
     private var locationSubscription: AnyCancellable?
-    var context: ModelContext?
+    var context: ModelContext? { didSet { refreshSavedMarkers() } }
+    var droppedPins: [Place] = []
+    var savedMarkers: [Place] = []
+    var mapStyleLoading = false
+    var displayedSatellite = false
     var selectedPlace: Place?
     var destination: Place?
     var origin: Place?
@@ -55,13 +59,25 @@ import SwiftData
     var currentOrigin: Place? {
         origin ?? location.location.map { Place.pin(at: $0.coordinate, name: "My Location") }
     }
-    var markers: [Place] {
-        var places = search.places
-        if preferences.drivingPOIs && !navigation.active { places += drivingPlaces }
-        if let selectedPlace { places.append(selectedPlace) }
-        var ids: Set<String> = []
-        return places.filter { ids.insert($0.id).inserted }
+    var annotations: [ArcAnnotation] {
+        func group(_ places: [Place], _ role: AnnotationRole) -> [ArcAnnotation] {
+            places.map { .init(place: $0, role: role) }
+        }
+        return ArcAnnotation.merge([
+            group(savedMarkers, .saved), group(droppedPins, .dropped),
+            group(preferences.drivingPOIs && !navigation.active ? drivingPlaces : [], .drivingPOI),
+            group(searching ? search.places : [], search.activeCategory == nil ? .search : .category),
+            group([selectedPlace].compactMap { $0 }, .selected),
+            group(planning || navigation.active ? [origin, destination].compactMap { $0 } + stops : [], .destination)
+        ])
     }
+    func refreshSavedMarkers() {
+        guard let context else { savedMarkers = []; return }
+        savedMarkers = ((try? context.fetch(FetchDescriptor<SavedPlace>())) ?? []).compactMap(\.place)
+    }
+    func clearSearch() { query = ""; search.clear(); selectedPlace = nil }
+    func dismissSearch() { searching = false; clearSearch() }
+    func dismissPlace() { selectedPlace = nil; search.clear() }
     func command(_ command: MapCommand) {
         mapCommand = command; commandRevision += 1
         switch command {
@@ -79,14 +95,15 @@ import SwiftData
     }
     func openSearch(_ purpose: SearchPurpose = .destination) {
         searchPurpose = purpose
-        query = ""
-        search.search("", proximity: location.location?.coordinate)
+        clearSearch()
         searching = true; haptic.tap()
     }
     func select(_ place: Place) {
         haptic.tap()
         recordSearch(query.isEmpty ? place.name : query)
         searching = false
+        search.clear()
+        selectedPlace = nil
         switch searchPurpose {
         case .origin: origin = place; Task { await calculate() }
         case .stop: stops.append(place); Task { await calculate() }
@@ -100,10 +117,14 @@ import SwiftData
         command(.focus(place.coordinate))
     }
     func dropPin(_ coordinate: CLLocationCoordinate2D, name: String? = nil) {
-        selectedPlace = Place.pin(at: coordinate, name: name ?? "Dropped pin")
+        search.clear()
+        let pin = Place.pin(at: coordinate, name: name ?? "Dropped pin")
+        droppedPins.append(pin)
+        selectedPlace = pin
         if let name, let pinID = selectedPlace?.id {
             search.mapPlace(named: name, near: coordinate) { [weak self] result in
                 guard let self, let result, self.selectedPlace?.id == pinID else { return }
+                self.droppedPins.removeAll { $0.id == pinID }
                 self.selectedPlace = result
                 self.search.enrich(result) { [weak self] enriched in
                     guard self?.selectedPlace?.id == result.id else { return }
@@ -114,7 +135,7 @@ import SwiftData
         haptic.tap()
     }
     func directions(to place: Place) {
-        destination = place; selectedPlace = nil; planning = true
+        destination = place; selectedPlace = nil; search.clear(); planning = true
         if currentOrigin == nil { location.request() }
         Task { await calculate() }
     }
@@ -193,7 +214,7 @@ import SwiftData
             let saved = try context.fetch(FetchDescriptor<SavedPlace>())
             if let existing = saved.first(where: { $0.placeID == place.id }) { context.delete(existing) }
             else { context.insert(try SavedPlace(place: place)) }
-            try context.save(); haptic.tap(success: true)
+            try context.save(); refreshSavedMarkers(); haptic.tap(success: true)
         } catch { notice = "This place couldn't be saved. Try again." }
     }
     func refreshDrivingPlaces(_ update: CLLocation? = nil) {

@@ -49,7 +49,8 @@ struct JourneyStatusView: View {
                 Capsule().fill(model.preferences.accent.color)
                     .frame(width: geometry.size.width * min(1, max(0, model.navigation.guidance.fraction)))
             }.frame(height: 2).padding(.horizontal, 20)
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
+                SpeedLimitRoundel(value: model.navigation.speedLimit.map(model.preferences.units.speed))
                 VStack(alignment: .leading, spacing: 5) {
                     Text(duration(model.navigation.guidance.remainingTime)).font(.title2.bold()).monospacedDigit()
                     HStack(spacing: 12) {
@@ -70,8 +71,9 @@ struct JourneyStatusView: View {
                         .frame(width: 36, height: 40)
                 }.accessibilityLabel("Navigation options")
                 Button("End", action: end).font(.headline).foregroundStyle(.red).buttonStyle(.glass)
-            }.padding(20)
+            }.padding(16)
         }
+        .glassEffect(.regular, in: .rect(cornerRadius: 28))
     }
 }
 

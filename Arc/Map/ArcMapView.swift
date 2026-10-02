@@ -9,6 +9,7 @@ import UIKit
 struct ArcMapView: UIViewRepresentable {
     let model: ArcModel
     let colorScheme: ColorScheme
+    let presentation: MapPresentation
 
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
     func makeUIView(context: Context) -> NavigationMapView {
@@ -26,6 +27,8 @@ struct ArcMapView: UIViewRepresentable {
         view.puckType = .puck2D(Puck2DConfiguration(topImage: Self.arrowImage(), bearingImage: nil, shadowImage: nil))
         view.puckBearing = .heading
         view.mapView.ornaments.options.compass.visibility = .hidden
+        view.mapView.ornaments.logoView.isHidden = DevelopmentConfiguration.hidesMapAttribution
+        view.mapView.ornaments.attributionButton.isHidden = DevelopmentConfiguration.hidesMapAttribution
         view.mapView.ornaments.options.logo.position = .topLeft
         view.mapView.ornaments.options.logo.margins = CGPoint(x: 12, y: 62)
         view.mapView.ornaments.options.attributionButton.position = .topRight
@@ -60,7 +63,8 @@ struct ArcMapView: UIViewRepresentable {
         var cancelables: Set<AnyCancelable> = []
         private var locationSubscription: AnyCancellable?
         private var annotations: PointAnnotationManager?
-        private var previousMarkers: [Place] = []
+        private var previousMarkers: [ArcAnnotation] = []
+        private var styleGeneration = 0
         private var previousRoutes: NavigationRoutes?
         private var styleKey = ""
         private var paletteKey = ""
@@ -104,18 +108,34 @@ struct ArcMapView: UIViewRepresentable {
         func update(_ view: NavigationMapView, scheme: ColorScheme) {
             let preferences = model.preferences
             let active = model.navigation.active && !model.navigation.arrived
-            let key = "\(preferences.satellite)-\(preferences.buildings)-\(preferences.traffic)-\(scheme)-\(active)"
+            let key = "\(preferences.satellite)-\(preferences.buildings)-\(scheme)-\(active)"
             if key != styleKey {
                 styleKey = key
-                if preferences.satellite {
-                    view.mapView.mapboxMap.mapStyle = .standardSatellite(lightPreset: scheme == .dark ? .night : .day,
-                        showPointOfInterestLabels: !active)
-                } else {
-                    view.mapView.mapboxMap.mapStyle = .standard(lightPreset: scheme == .dark ? .night : .day,
-                        showPointOfInterestLabels: !active, showTransitLabels: !active,
-                        show3dObjects: preferences.buildings || active)
+                styleGeneration += 1
+                let generation = styleGeneration
+                let satellite = preferences.satellite
+                Task { @MainActor [weak self] in
+                    guard let self, generation == self.styleGeneration else { return }
+                    self.model.mapStyleLoading = true
                 }
-                installTraffic()
+                let style: MapStyle = satellite
+                    ? .standardSatellite(lightPreset: scheme == .dark ? .night : .day, showPointOfInterestLabels: !active)
+                    : .standard(lightPreset: scheme == .dark ? .night : .day,
+                        showPointOfInterestLabels: !active, showTransitLabels: !active, show3dObjects: preferences.buildings || active)
+                view.mapView.mapboxMap.load(mapStyle: style) { [weak self] error in
+                    Task { @MainActor in
+                    guard let self, generation == self.styleGeneration else { return }
+                    self.model.mapStyleLoading = false
+                    if error != nil {
+                        self.model.notice = "This map style couldn't load. Check your connection and try again."
+                        self.model.preferences.satellite = self.model.displayedSatellite
+                        self.styleKey = ""
+                    } else {
+                        self.model.displayedSatellite = satellite
+                        self.installTraffic()
+                    }
+                    }
+                }
             }
             let palette = "\(preferences.accent)-\(preferences.traffic)"
             if palette != paletteKey {
@@ -130,6 +150,8 @@ struct ArcMapView: UIViewRepresentable {
                 congestion.colors.alternativeRouteColors.severe = .systemGray
                 congestion.colors.alternativeRouteColors.unknown = .systemGray
                 view.congestionConfiguration = congestion
+                previousMarkers = []
+                installTraffic()
             }
             if let source = view.navigationCamera.viewportDataSource as? MobileViewportDataSource {
                 source.options.followingCameraOptions.defaultPitch = active && model.mode == .driving ? 55 : 0
@@ -144,10 +166,11 @@ struct ArcMapView: UIViewRepresentable {
                     else { view.showcase(routes, routeAnnotationKinds: [.routeDurations], animated: true) }
                 } else { view.removeRoutes() }
             }
-            let markers = model.markers
+            let markers = model.annotations
             if markers != previousMarkers {
                 previousMarkers = markers
-                annotations?.annotations = markers.map { place in
+                annotations?.annotations = markers.map { annotation in
+                    let place = annotation.place
                     var point = PointAnnotation(id: place.id, coordinate: place.coordinate)
                     point.image = .init(image: Self.pinImage(color: UIColor(preferences.accent.color)), name: "arc-pin-\(preferences.accent.rawValue)")
                     point.iconAnchor = .bottom

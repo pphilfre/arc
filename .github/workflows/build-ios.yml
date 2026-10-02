@@ -1,6 +1,16 @@
 name: Build unsigned Arc IPA
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Build environment
+        type: choice
+        options: [development, production]
+        default: production
+      hide_map_attribution:
+        description: Hide map attribution for development UI testing only
+        type: boolean
+        default: false
   push:
     branches: [main, master]
   pull_request:
@@ -26,6 +36,8 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
       - name: Configure Mapbox securely
         env:
+          ARC_BUILD_ENVIRONMENT: ${{ inputs.environment || 'production' }}
+          ARC_HIDE_MAP_ATTRIBUTION: ${{ inputs.hide_map_attribution && 'true' || 'false' }}
           MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
         run: |
@@ -77,6 +89,19 @@ jobs:
           path: build/Arc-unsigned.ipa
           if-no-files-found: error
           retention-days: 7
+      - name: Export simulator screenshots
+        if: always()
+        run: |
+          if [ -d build/Arc-tests.xcresult ]; then
+            xcrun xcresulttool export attachments --path build/Arc-tests.xcresult --output-path build/Screenshots
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Arc-simulator-screenshots
+          path: build/Screenshots
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Upload build diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

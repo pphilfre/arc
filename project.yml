@@ -73,15 +73,24 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: dev.freddiephilpot.arc.tests
+  ArcUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests/ArcUITests]
+    dependencies:
+      - target: Arc
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.freddiephilpot.arc.uitests
 schemes:
   Arc:
     build:
       targets:
         Arc: all
     test:
-      targets: [ArcTests]
+      targets: [ArcTests, ArcUITests]
     run:
       config: Debug
     archive:
       config: Release
-

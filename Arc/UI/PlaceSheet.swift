@@ -16,7 +16,7 @@ struct PlaceSheet: View {
                         Text(place.category.capitalized).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button { model.selectedPlace = nil } label: { Image(systemName: "xmark").frame(width: 36, height: 36) }
+                    Button { model.dismissPlace() } label: { Image(systemName: "xmark").frame(width: 36, height: 36) }
                         .buttonStyle(.glass).accessibilityLabel("Close place")
                 }
                 if !place.address.isEmpty { Text(place.address).font(.subheadline).foregroundStyle(.secondary) }
@@ -36,9 +36,7 @@ struct PlaceSheet: View {
                     AsyncImage(url: imageURL) { image in image.resizable().scaledToFill() } placeholder: { Color.secondary.opacity(0.08) }
                         .frame(height: 180).clipShape(.rect(cornerRadius: 20))
                 }
-                if let hours = place.openingInformation {
-                    Label { Text(hours) } icon: { Image(systemName: "clock") }.font(.subheadline)
-                }
+                OpeningHoursView(schedule: place.openingSchedule)
                 if let website = place.website { Link(destination: website) { Label("Website", systemImage: "globe") } }
                 if let phone = place.phone {
                     Button {

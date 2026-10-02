@@ -45,17 +45,16 @@ struct ArcView: View {
 
     private var panelPresented: Binding<Bool> {
         Binding(get: {
-            model.searching || model.showingProfile || model.showingLayers || model.planning || model.selectedPlace != nil
+            !model.searching && (model.showingProfile || model.showingLayers || model.planning || model.selectedPlace != nil)
         }, set: { if !$0 {
-            if model.searching { model.searching = false }
-            else if model.showingProfile { model.showingProfile = false }
+            if model.searching { return }
+            if model.showingProfile { model.showingProfile = false }
             else if model.showingLayers { model.showingLayers = false }
             else if model.planning { model.cancelPlanning() }
-            else { model.selectedPlace = nil }
+            else { model.dismissPlace() }
         } })
     }
     private var detents: Set<PresentationDetent> {
-        if model.searching { return [.fraction(0.75), .large] }
         if model.showingLayers { return [.height(360)] }
         if model.showingProfile { return [.large] }
         if model.planning { return [.height(450), .large] }
@@ -65,7 +64,7 @@ struct ArcView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                ArcMapView(model: model, colorScheme: scheme).ignoresSafeArea()
+                ArcMapView(model: model, colorScheme: scheme, presentation: MapPresentation(model: model)).ignoresSafeArea()
                 GlassEffectContainer(spacing: 14) {
                     VStack(spacing: 16) {
                         if model.navigation.active && !model.navigation.arrived {
@@ -83,7 +82,7 @@ struct ArcView: View {
                                 .accessibilityLabel("Point north")
                             }
                             Spacer()
-                            if model.navigation.speed > 1.4 || model.location.isRecording || model.navigation.active {
+                            if !model.navigation.active && (model.navigation.speed > 1.4 || model.location.isRecording) {
                                 SpeedPill(model: model, expanded: $showMovement)
                             }
                         }
@@ -93,28 +92,29 @@ struct ArcView: View {
                                 .glassEffect(.regular, in: .rect(cornerRadius: 18))
                         }
                         Spacer(minLength: 0)
-                        if !model.following && !model.navigation.arrived {
+                        if !model.navigation.arrived {
                             HStack {
-                                Spacer()
-                                Button(action: model.recenter) {
-                                    Label(model.navigation.active ? "Resume" : "", systemImage: "location.fill")
-                                        .labelStyle(.titleAndIcon).padding(16)
+                                if model.navigation.active {
+                                    CurrentSpeedControl(model: model, expanded: $showMovement)
                                 }
-                                .glassEffect(.regular.interactive(), in: .capsule)
-                                .accessibilityLabel(model.navigation.active ? "Resume navigation camera" : "Recenter on my location")
+                                Spacer()
+                                if !model.following || !model.location.authorized {
+                                    CircularMapControl(tint: model.navigation.active ? model.preferences.accent.color.opacity(0.16) : .clear,
+                                        label: model.navigation.active ? "Follow navigation camera" : "Recenter on my location", action: model.recenter) {
+                                            Image(systemName: model.navigation.active ? "location.north.line.fill" : "location.fill")
+                                                .font(.system(size: 22, weight: .medium)).offset(x: -0.5, y: 0.5)
+                                        }
+                                }
                             }
                         }
                         if model.navigation.active && !model.navigation.arrived {
                             JourneyStatusView(model: model, end: { ending = true })
-                                .glassEffect(.regular, in: .rect(cornerRadius: 28))
-                                .glassEffectID("journey", in: glass)
-                                .glassEffectTransition(.matchedGeometry)
                         } else if !model.navigation.arrived {
                             browseControls
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, model.navigation.active ? 10 : 62)
+                    .padding(.top, 10)
                     .padding(.bottom, 16)
 
                     if model.navigation.arrived {
@@ -127,18 +127,31 @@ struct ArcView: View {
                     }
                 }
             }
+            .overlay(alignment: .bottom) {
+                if model.searching {
+                    SearchSheet(model: model)
+                        .accessibilityIdentifier("search.surface")
+                        .frame(height: geometry.size.height * 0.75)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 32))
+                        .padding(.horizontal, 8).padding(.bottom, 6)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(10)
+                }
+            }
+            .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.9), value: model.searching)
             .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.65, dampingFraction: 0.82), value: model.navigation.arrived)
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showMovement)
         }
+        .ignoresSafeArea(.keyboard)
         .sheet(isPresented: panelPresented) {
             Group {
-                if model.searching { SearchSheet(model: model) }
-                else if model.showingProfile { ProfileSheet(model: model) }
+                if model.showingProfile { ProfileSheet(model: model) }
                 else if model.showingLayers { LayersSheet(model: model) }
                 else if model.planning { DirectionsSheet(model: model) }
                 else if let place = model.selectedPlace { PlaceSheet(model: model, place: place) }
             }
             .presentationDetents(detents)
+            .presentationBackground(.regularMaterial)
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(model.showingProfile ? .disabled : .enabled)
             .presentationCornerRadius(32)
@@ -178,10 +191,9 @@ struct ArcView: View {
 
     private var browseControls: some View {
         HStack(spacing: 12) {
-            Button { model.showingProfile = true; model.haptic.tap() } label: {
+            CircularMapControl(label: "Profile and settings", action: { model.showingProfile = true; model.haptic.tap() }) {
                 Image(systemName: "person.crop.circle").font(.system(size: 23, weight: .medium))
-                    .frame(width: 58, height: 58)
-            }.glassEffect(.regular.interactive(), in: .circle).accessibilityLabel("Profile and settings")
+            }
             Button { model.openSearch() } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").fontWeight(.semibold)
@@ -191,18 +203,11 @@ struct ArcView: View {
             }
             .glassEffect(.regular.interactive(), in: .capsule)
             .glassEffectID("search", in: glass)
-            Button { model.showingLayers = true; model.haptic.tap() } label: {
+            .accessibilityIdentifier("map.search")
+            CircularMapControl(label: "Map layers", action: { model.showingLayers = true; model.haptic.tap() }) {
                 Image(systemName: "square.3.layers.3d").font(.system(size: 23, weight: .medium))
-                    .frame(width: 58, height: 58)
-            }.glassEffect(.regular.interactive(), in: .circle).accessibilityLabel("Map layers")
-        }
-        .foregroundStyle(.primary)
-        .overlay(alignment: .topTrailing) {
-            if !model.location.authorized && model.following {
-                Button(action: model.recenter) { Label("Use my location", systemImage: "location") }
-                    .font(.subheadline).padding(12).glassEffect(.regular.interactive())
-                    .offset(y: -68)
             }
         }
+        .foregroundStyle(.primary)
     }
 }
