@@ -40,6 +40,7 @@ final class ArcUITests: XCTestCase {
         app.buttons["Clear search"].tap()
         app.buttons["Food"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Clear category"].waitForExistence(timeout: 5))
+        capture("Active category and clear action", app: app)
         app.buttons["Clear category"].tap()
         XCTAssertFalse(app.buttons["Clear category"].exists)
         done.tap()

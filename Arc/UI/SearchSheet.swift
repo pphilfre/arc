@@ -53,7 +53,29 @@ struct SearchSheet: View {
                             }
                         }.padding(.horizontal, 20).padding(.vertical, 8)
                     }.scrollIndicators(.hidden)
-                    if model.search.busy { ProgressView("Searching nearby…").padding(.horizontal, 24) }
+                    if let category = model.search.activeCategory {
+                        HStack {
+                            Label(category.name, systemImage: category.symbol)
+                                .font(.headline)
+                            Spacer()
+                            Button("Clear category") {
+                                focused = false
+                                model.clearSearch()
+                                model.haptic.tap()
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .frame(minHeight: 44)
+                        }.padding(.horizontal, 24)
+                    }
+                    if model.search.busy {
+                        VStack(spacing: 12) {
+                            ProgressView().controlSize(.regular)
+                            Text("Searching nearby…").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Searching nearby")
+                    }
                     if let error = model.search.error {
                         ContentUnavailableView("Search unavailable", systemImage: "wifi.slash", description: Text(error))
                     }
@@ -75,7 +97,7 @@ struct SearchSheet: View {
                                 Divider().padding(.leading, 68)
                             }
                         }
-                    } else if model.query.isEmpty && !model.search.busy {
+                    } else if model.query.isEmpty && model.search.activeCategory == nil && !model.search.busy {
                         if !saved.isEmpty {
                             Text("Saved places").font(.title3.bold()).padding(.horizontal, 24)
                             ForEach(saved) { item in
