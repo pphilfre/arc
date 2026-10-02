@@ -1,0 +1,98 @@
+name: Build unsigned Arc IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: arc-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    # Fork PRs cannot access secrets. Run local contract checks in the other job.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Configure Mapbox securely
+        env:
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/configure.py
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          token = os.environ.get('MAPBOX_DOWNLOADS_TOKEN', '')
+          if not token.startswith('sk.') or any(c.isspace() for c in token):
+              raise SystemExit('Set MAPBOX_DOWNLOADS_TOKEN with DOWNLOADS:READ in Actions Secrets')
+          path = Path.home() / '.netrc'
+          path.write_text('machine api.mapbox.com\nlogin mapbox\npassword ' + token + '\n')
+          path.chmod(0o600)
+          PY
+      - name: Generate Xcode project
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+      - name: Resolve packages
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies -project Arc.xcodeproj -scheme Arc -clonedSourcePackagesDirPath build/Packages
+      - name: Build complete device application without signing
+        run: |
+          set -euo pipefail
+          xcodebuild -project Arc.xcodeproj -scheme Arc -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/Packages \
+            -resultBundlePath build/Arc-build.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            DEVELOPMENT_TEAM='' build 2>&1 | tee build/xcodebuild.log
+      - name: Package unsigned IPA
+        run: python3 scripts/package_ipa.py build/DerivedData/Build/Products/Release-iphoneos/Arc.app build/Arc-unsigned.ipa
+      - name: Run native model tests on iOS 26
+        run: |
+          set -euo pipefail
+          ARC_SIMULATOR_ID=$(python3 scripts/select_simulator.py)
+          xcodebuild -project Arc.xcodeproj -scheme Arc -configuration Debug \
+            -sdk iphonesimulator -destination "platform=iOS Simulator,id=$ARC_SIMULATOR_ID" \
+            -derivedDataPath build/SimulatorData -clonedSourcePackagesDirPath build/Packages \
+            -resultBundlePath build/Arc-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            DEVELOPMENT_TEAM='' test 2>&1 | tee build/tests.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arc-unsigned-ipa
+          path: build/Arc-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arc-build-diagnostics
+          path: |
+            build/xcodebuild.log
+            build/Arc-build.xcresult
+            build/tests.log
+            build/Arc-tests.xcresult
+          retention-days: 3
+      - name: Remove generated credentials
+        if: always()
+        run: |
+          rm -f "$HOME/.netrc" Config/Generated/Arc-Info.plist
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s Tests/Build -v

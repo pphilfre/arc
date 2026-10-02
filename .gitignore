@@ -1,0 +1,16 @@
+.env.local
+.env.*.local
+!.env.example
+.research/
+Config/Generated/
+*.xcodeproj/
+*.xcworkspace/
+build/
+DerivedData/
+.swiftpm/
+.DS_Store
+*.ipa
+*.xcarchive
+__pycache__/
+
+env.local

@@ -1,0 +1,87 @@
+name: Arc
+options:
+  bundleIdPrefix: dev.freddiephilpot
+  deploymentTarget:
+    iOS: '26.0'
+  xcodeVersion: '26.6'
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '26.0'
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ''
+    DEVELOPMENT_TEAM: ''
+    TARGETED_DEVICE_FAMILY: '1'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+packages:
+  MapboxNavigation:
+    url: https://github.com/mapbox/mapbox-navigation-ios.git
+    exactVersion: 3.32.0
+  MapboxMaps:
+    url: https://github.com/mapbox/mapbox-maps-ios.git
+    exactVersion: 11.32.0
+  MapboxSearch:
+    url: https://github.com/mapbox/mapbox-search-ios.git
+    exactVersion: 2.32.0
+targets:
+  Arc:
+    type: application
+    platform: iOS
+    sources:
+      - path: Arc
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.freddiephilpot.arc
+        INFOPLIST_FILE: Config/Generated/Arc-Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: NO
+    dependencies:
+      - package: MapboxNavigation
+        product: MapboxNavigationCore
+      - package: MapboxNavigation
+        product: MapboxDirections
+      - package: MapboxMaps
+      - package: MapboxSearch
+        product: MapboxSearch
+      - target: ArcActivity
+        embed: true
+  ArcActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ArcActivity
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.freddiephilpot.arc.activity
+        INFOPLIST_FILE: Config/Activity-Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  ArcTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests/ArcTests]
+    dependencies:
+      - target: Arc
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.freddiephilpot.arc.tests
+schemes:
+  Arc:
+    build:
+      targets:
+        Arc: all
+    test:
+      targets: [ArcTests]
+    run:
+      config: Debug
+    archive:
+      config: Release
+
