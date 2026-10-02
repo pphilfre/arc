@@ -4,6 +4,20 @@ import SwiftUI
 @testable import Arc
 
 final class ArcTests: XCTestCase {
+    @MainActor func testDismissingCategoryKeepsSavedAndDeliberatePins() {
+        let model = ArcModel()
+        let saved = Place.pin(at: .init(latitude: 51, longitude: 0), name: "Saved")
+        let pin = Place.pin(at: .init(latitude: 52, longitude: 0))
+        let result = Place.pin(at: .init(latitude: 53, longitude: 0), name: "Food result")
+        model.savedMarkers = [saved]; model.droppedPins = [pin]
+        model.searching = true; model.search.activeCategory = SearchCategory.all.first
+        model.search.places = [result]
+        XCTAssertEqual(model.annotations.count, 3)
+        model.dismissSearch()
+        XCTAssertEqual(Set(model.annotations.map(\.id)), [saved.id, pin.id])
+        XCTAssertNil(model.search.activeCategory)
+        XCTAssertTrue(model.search.places.isEmpty)
+    }
     func testOpeningHoursAcrossMidnightAndSplitPeriods() {
         let schedule = OpeningSchedule(availability: .scheduled, periods: [
             .init(weekday: 2, startMinute: 8 * 60, endWeekday: 2, endMinute: 12 * 60),

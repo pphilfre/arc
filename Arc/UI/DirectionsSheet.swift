@@ -74,7 +74,7 @@ struct DirectionsSheet: View {
                                 model.mode = mode; model.haptic.tap()
                             } label: {
                                 Image(systemName: mode.symbol).font(.system(size: 19, weight: .semibold))
-                                    .frame(width: 46, height: 36)
+                                    .frame(width: 46, height: 44)
                                     .foregroundStyle(model.mode == mode ? model.preferences.accent.color : Color.secondary)
                                     .background(model.mode == mode ? model.preferences.accent.color.opacity(0.12) : .clear, in: Capsule())
                             }.buttonStyle(.plain).accessibilityLabel(mode.rawValue)

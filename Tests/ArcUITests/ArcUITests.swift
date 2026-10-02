@@ -1,6 +1,26 @@
 import XCTest
 
 final class ArcUITests: XCTestCase {
+    @MainActor func testSettingsAndLayersRemainAligned() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["Profile and settings"].waitForExistence(timeout: 20))
+        capture("Browsing controls", app: app)
+        app.buttons["Profile and settings"].tap()
+        app.buttons["Settings"].tap()
+        XCTAssertTrue(app.buttons["Purple"].waitForExistence(timeout: 5))
+        app.buttons["Purple"].tap()
+        capture("Accent presets", app: app)
+        app.buttons["Done"].tap()
+        app.buttons["Map layers"].tap()
+        XCTAssertTrue(app.buttons["map.style.satellite"].waitForExistence(timeout: 5))
+        app.buttons["map.style.satellite"].tap()
+        app.buttons["map.style.default"].tap()
+        let confirmed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'Selected'"),
+            object: app.buttons["map.style.default"])
+        XCTAssertEqual(XCTWaiter.wait(for: [confirmed], timeout: 25), .completed)
+        capture("Layers after rapid style switching", app: app)
+    }
     @MainActor func testSearchKeepsOnePositionThroughKeyboardAndClearsCategories() {
         let app = XCUIApplication()
         app.launch()

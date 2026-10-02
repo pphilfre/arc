@@ -12,12 +12,14 @@ import MapboxNavigationCore
     let annotations: [ArcAnnotation]
     let routes: NavigationRoutes?
     let commandRevision: Int
+    let styleRevision: Int
     init(model: ArcModel) {
         satellite = model.preferences.satellite; buildings = model.preferences.buildings
         traffic = model.preferences.traffic; accent = model.preferences.accent
         active = model.navigation.active && !model.navigation.arrived
         mode = model.mode; annotations = model.annotations; routes = model.navigation.routes
         commandRevision = model.commandRevision
+        styleRevision = model.mapStyleRevision
     }
 }
 

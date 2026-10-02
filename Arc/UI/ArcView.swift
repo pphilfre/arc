@@ -55,7 +55,7 @@ struct ArcView: View {
         } })
     }
     private var detents: Set<PresentationDetent> {
-        if model.showingLayers { return [.height(360)] }
+        if model.showingLayers { return [.height(470), .large] }
         if model.showingProfile { return [.large] }
         if model.planning { return [.height(450), .large] }
         return [.height(330), .fraction(0.75), .large]
@@ -130,7 +130,6 @@ struct ArcView: View {
             .overlay(alignment: .bottom) {
                 if model.searching {
                     SearchSheet(model: model)
-                        .accessibilityIdentifier("search.surface")
                         .frame(height: geometry.size.height * 0.75)
                         .glassEffect(.regular, in: .rect(cornerRadius: 32))
                         .padding(.horizontal, 8).padding(.bottom, 6)

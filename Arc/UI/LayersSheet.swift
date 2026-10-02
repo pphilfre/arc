@@ -4,7 +4,8 @@ struct LayersSheet: View {
     @Bindable var model: ArcModel
     var body: some View {
         @Bindable var preferences = model.preferences
-        VStack(alignment: .leading, spacing: 22) {
+        ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("Layers").font(.title2.bold())
                 Spacer()
@@ -18,6 +19,7 @@ struct LayersSheet: View {
             layerRow("Traffic", symbol: "car.side.fill", isOn: $preferences.traffic)
             layerRow("Driving POIs", symbol: "fuelpump.fill", isOn: $preferences.drivingPOIs)
         }.padding(26).padding(.top, 6)
+        }.scrollIndicators(.hidden)
         .onChange(of: model.preferences.buildings) { _, _ in model.haptic.tap(); model.command(.recenter) }
         .onChange(of: model.preferences.traffic) { _, _ in model.haptic.tap() }
         .onChange(of: model.preferences.drivingPOIs) { _, _ in model.haptic.tap() }
@@ -30,7 +32,7 @@ struct LayersSheet: View {
     }
     private func mapChoice(_ title: String, symbol: String, satellite: Bool) -> some View {
         Button {
-            model.preferences.satellite = satellite; model.haptic.tap()
+            model.preferences.satellite = satellite; model.mapStyleRevision += 1; model.haptic.tap()
         } label: {
             VStack(spacing: 12) {
                 Image(systemName: symbol).font(.system(size: 30, weight: .medium))
@@ -44,5 +46,7 @@ struct LayersSheet: View {
             }.frame(maxWidth: .infinity).padding(.vertical, 18)
                 .glassEffect(.regular.tint(model.displayedSatellite == satellite ? model.preferences.accent.color.opacity(0.16) : .clear).interactive(), in: .rect(cornerRadius: 20))
         }.buttonStyle(.plain)
+        .accessibilityIdentifier(satellite ? "map.style.satellite" : "map.style.default")
+        .accessibilityValue(model.displayedSatellite == satellite ? "Selected" : "Not selected")
     }
 }

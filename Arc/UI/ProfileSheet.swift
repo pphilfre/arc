@@ -73,6 +73,7 @@ struct ProfileSheet: View {
             .navigationTitle("Arc").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { model.showingProfile = false } } }
         }
+        .onChange(of: saved.map(\.placeID)) { _, _ in model.refreshSavedMarkers() }
     }
 }
 

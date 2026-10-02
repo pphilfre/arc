@@ -2,7 +2,8 @@ import CoreLocation
 import Combine
 import Observation
 
-@MainActor @Observable final class LocationService: NSObject, CLLocationManagerDelegate {
+// CLLocationManager delivers callbacks on the run loop where it is created (the main actor here).
+@MainActor @Observable final class LocationService: NSObject, @preconcurrency CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     let updates = PassthroughSubject<CLLocation, Never>()
     var location: CLLocation?
@@ -81,4 +82,3 @@ struct MovementSession {
         distance += delta
     }
 }
-

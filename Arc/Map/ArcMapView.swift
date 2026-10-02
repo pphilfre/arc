@@ -38,6 +38,8 @@ struct ArcMapView: UIViewRepresentable {
         view.showsRelativeDurationsOnAlternativeManuever = false
         view.viewportPadding = UIEdgeInsets(top: 200, left: 36, bottom: 300, right: 36)
         context.coordinator.attach(view)
+        view.mapView.ornaments.logoView.isHidden = DevelopmentConfiguration.hidesMapAttribution
+        view.mapView.ornaments.attributionButton.isHidden = DevelopmentConfiguration.hidesMapAttribution
         return view
     }
     func updateUIView(_ view: NavigationMapView, context: Context) {
@@ -108,7 +110,7 @@ struct ArcMapView: UIViewRepresentable {
         func update(_ view: NavigationMapView, scheme: ColorScheme) {
             let preferences = model.preferences
             let active = model.navigation.active && !model.navigation.arrived
-            let key = "\(preferences.satellite)-\(preferences.buildings)-\(scheme)-\(active)"
+            let key = "\(preferences.satellite)-\(preferences.buildings)-\(scheme)-\(active)-\(model.mapStyleRevision)"
             if key != styleKey {
                 styleKey = key
                 styleGeneration += 1
@@ -129,7 +131,6 @@ struct ArcMapView: UIViewRepresentable {
                     if error != nil {
                         self.model.notice = "This map style couldn't load. Check your connection and try again."
                         self.model.preferences.satellite = self.model.displayedSatellite
-                        self.styleKey = ""
                     } else {
                         self.model.displayedSatellite = satellite
                         self.installTraffic()
@@ -194,6 +195,8 @@ struct ArcMapView: UIViewRepresentable {
                 view.mapView.ornaments.options.attributionButton.margins = CGPoint(x: 12, y: active ? 160 : 62)
                 if !active { view.navigationCamera.stop() }
             }
+            view.mapView.ornaments.logoView.isHidden = DevelopmentConfiguration.hidesMapAttribution
+            view.mapView.ornaments.attributionButton.isHidden = DevelopmentConfiguration.hidesMapAttribution
             if lastCommand != model.commandRevision {
                 lastCommand = model.commandRevision
                 switch model.mapCommand {

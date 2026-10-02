@@ -15,7 +15,7 @@ def walk(node, source, path):
         print(path.relative_to(root), node.type, node.start_point, repr(source[node.start_byte:node.end_byte].decode()[:180]))
     for child in node.children:
         walk(child, source, path)
-files = [p for directory in ("Arc", "ArcActivity", "Shared", "Tests/ArcTests") for p in (root / directory).rglob("*.swift")]
+files = [p for directory in ("Arc", "ArcActivity", "Shared", "Tests") for p in (root / directory).rglob("*.swift")]
 for path in files:
     source = path.read_bytes()
     walk(parser.parse(source).root_node, source, path)

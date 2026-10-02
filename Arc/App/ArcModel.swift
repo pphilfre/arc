@@ -16,6 +16,7 @@ import SwiftData
     var savedMarkers: [Place] = []
     var mapStyleLoading = false
     var displayedSatellite = false
+    var mapStyleRevision = 0
     var selectedPlace: Place?
     var destination: Place?
     var origin: Place?

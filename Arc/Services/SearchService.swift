@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import MapboxSearch
 import Observation
 
@@ -123,13 +124,12 @@ struct SearchCategory: Identifiable {
             self?.detailRequests[id] = nil
             var enriched = result.map(Self.place) ?? place
             guard enriched.openingSchedule?.availability == .scheduled else { completion(enriched); return }
-            let geocoder = CLGeocoder()
-            geocoder.reverseGeocodeLocation(enriched.location) { [geocoder] placemarks, _ in
-                _ = geocoder
-                Task { @MainActor in
-                    enriched.openingSchedule?.timeZoneIdentifier = placemarks?.first?.timeZone?.identifier
-                    completion(enriched)
+            Task { @MainActor in
+                if let request = MKReverseGeocodingRequest(location: enriched.location) {
+                    let items = try? await request.mapItems
+                    enriched.openingSchedule?.timeZoneIdentifier = items?.first?.timeZone?.identifier
                 }
+                completion(enriched)
             }
         }
         detailRequests[id] = request
