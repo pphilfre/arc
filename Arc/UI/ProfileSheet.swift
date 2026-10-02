@@ -79,31 +79,32 @@ struct ProfileSheet: View {
 struct SettingsForm: View {
     @Bindable var model: ArcModel
     var body: some View {
+        @Bindable var preferences = model.preferences
         Form {
             Section("Appearance") {
-                Picker("Appearance", selection: $model.preferences.appearance) {
+                Picker("Appearance", selection: $preferences.appearance) {
                     ForEach(Appearance.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented)
-                Picker("Accent", selection: $model.preferences.accent) {
+                Picker("Accent", selection: $preferences.accent) {
                     ForEach(Accent.allCases) { Label($0.rawValue, systemImage: "circle.fill").foregroundStyle($0.color).tag($0) }
                 }
             }
             Section("Map") {
-                Picker("Map", selection: $model.preferences.satellite) { Text("Default").tag(false); Text("Satellite").tag(true) }
-                Toggle("3D buildings", isOn: $model.preferences.buildings)
-                Toggle("Traffic", isOn: $model.preferences.traffic)
-                Toggle("Driving POIs", isOn: $model.preferences.drivingPOIs)
+                Picker("Map", selection: $preferences.satellite) { Text("Default").tag(false); Text("Satellite").tag(true) }
+                Toggle("3D buildings", isOn: $preferences.buildings)
+                Toggle("Traffic", isOn: $preferences.traffic)
+                Toggle("Driving POIs", isOn: $preferences.drivingPOIs)
             }
             Section("Navigation") {
-                Picker("Speed units", selection: $model.preferences.units) { ForEach(SpeedUnit.allCases) { Text($0.rawValue).tag($0) } }
-                Picker("Voice guidance", selection: $model.preferences.voice) { ForEach(VoiceMode.allCases) { Text($0.rawValue).tag($0) } }
-                Toggle("Avoid motorways", isOn: $model.preferences.avoidMotorways)
-                Toggle("Avoid tolls", isOn: $model.preferences.avoidTolls)
-                Toggle("Avoid ferries", isOn: $model.preferences.avoidFerries)
+                Picker("Speed units", selection: $preferences.units) { ForEach(SpeedUnit.allCases) { Text($0.rawValue).tag($0) } }
+                Picker("Voice guidance", selection: $preferences.voice) { ForEach(VoiceMode.allCases) { Text($0.rawValue).tag($0) } }
+                Toggle("Avoid motorways", isOn: $preferences.avoidMotorways)
+                Toggle("Avoid tolls", isOn: $preferences.avoidTolls)
+                Toggle("Avoid ferries", isOn: $preferences.avoidFerries)
             }
             Section("Interactions") {
-                Toggle("Haptics", isOn: $model.preferences.haptics)
-                Picker("Haptic strength", selection: $model.preferences.hapticLevel) {
+                Toggle("Haptics", isOn: $preferences.haptics)
+                Picker("Haptic strength", selection: $preferences.hapticLevel) {
                     ForEach(HapticLevel.allCases) { Text($0.rawValue).tag($0) }
                 }.disabled(!model.preferences.haptics)
             }
@@ -115,4 +116,3 @@ struct SettingsForm: View {
         .onChange(of: model.preferences.hapticLevel) { _, _ in model.haptic.tap() }
     }
 }
-

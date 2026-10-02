@@ -25,10 +25,11 @@ import AVFoundation
         synthesizer.stopSpeaking(at: .immediate)
         deactivate()
     }
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { deactivate() }
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in self?.deactivate() }
+    }
     private func deactivate() {
         guard !synthesizer.isSpeaking else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
-

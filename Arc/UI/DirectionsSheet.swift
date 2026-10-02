@@ -4,6 +4,7 @@ import MapboxNavigationCore
 struct DirectionsSheet: View {
     @Bindable var model: ArcModel
     var body: some View {
+        @Bindable var preferences = model.preferences
         NavigationStack {
             List {
                 Section {
@@ -59,9 +60,9 @@ struct DirectionsSheet: View {
                 }
                 if model.mode == .driving {
                     Section("Route options") {
-                        Toggle("Avoid motorways", isOn: $model.preferences.avoidMotorways)
-                        Toggle("Avoid tolls", isOn: $model.preferences.avoidTolls)
-                        Toggle("Avoid ferries", isOn: $model.preferences.avoidFerries)
+                        Toggle("Avoid motorways", isOn: $preferences.avoidMotorways)
+                        Toggle("Avoid tolls", isOn: $preferences.avoidTolls)
+                        Toggle("Avoid ferries", isOn: $preferences.avoidFerries)
                     }
                 }
             }

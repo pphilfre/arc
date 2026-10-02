@@ -43,6 +43,7 @@ struct JourneyStatusView: View {
     @Bindable var model: ArcModel
     let end: () -> Void
     var body: some View {
+        @Bindable var preferences = model.preferences
         VStack(spacing: 0) {
             GeometryReader { geometry in
                 Capsule().fill(model.preferences.accent.color)
@@ -58,7 +59,7 @@ struct JourneyStatusView: View {
                 }
                 Spacer(minLength: 0)
                 Menu {
-                    Picker("Voice guidance", selection: $model.preferences.voice) {
+                    Picker("Voice guidance", selection: $preferences.voice) {
                         ForEach(VoiceMode.allCases) { Text($0.rawValue).tag($0) }
                     }
                     Button("Overview", systemImage: "arrow.up.left.and.arrow.down.right") { model.command(.overview) }

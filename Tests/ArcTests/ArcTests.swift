@@ -1,5 +1,6 @@
 import XCTest
 import CoreLocation
+import SwiftUI
 @testable import Arc
 
 final class ArcTests: XCTestCase {
@@ -46,5 +47,27 @@ final class ArcTests: XCTestCase {
         XCTAssertEqual(second.accent, .purple)
         XCTAssertTrue(second.avoidTolls)
         XCTAssertEqual(second.voice, .muted)
+    }
+    @MainActor func testSettingsBindingsUpdateSharedPreferencesAndPersist() {
+        let suite = "arc-bindings-\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let shared = Preferences(defaults: defaults)
+        @Bindable var preferences = shared
+
+        $preferences.avoidTolls.wrappedValue = true
+        $preferences.voice.wrappedValue = .muted
+        $preferences.buildings.wrappedValue = true
+        $preferences.accent.wrappedValue = .purple
+
+        XCTAssertTrue(shared.avoidTolls)
+        XCTAssertEqual(shared.voice, .muted)
+        XCTAssertTrue(shared.buildings)
+        XCTAssertEqual(shared.accent, .purple)
+        let restored = Preferences(defaults: defaults)
+        XCTAssertTrue(restored.avoidTolls)
+        XCTAssertEqual(restored.voice, .muted)
+        XCTAssertTrue(restored.buildings)
+        XCTAssertEqual(restored.accent, .purple)
     }
 }

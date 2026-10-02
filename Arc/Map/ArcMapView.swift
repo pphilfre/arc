@@ -30,7 +30,6 @@ struct ArcMapView: UIViewRepresentable {
         view.mapView.ornaments.options.logo.margins = CGPoint(x: 12, y: 62)
         view.mapView.ornaments.options.attributionButton.position = .topRight
         view.mapView.ornaments.options.attributionButton.margins = CGPoint(x: 12, y: 62)
-        view.showsIntersectionLaneGuidance = true
         view.routeAlternateColor = .systemGray
         view.routeAlternateCasingColor = .systemGray2
         view.showsRelativeDurationsOnAlternativeManuever = false

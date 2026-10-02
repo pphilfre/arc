@@ -3,6 +3,7 @@ import SwiftUI
 struct LayersSheet: View {
     @Bindable var model: ArcModel
     var body: some View {
+        @Bindable var preferences = model.preferences
         VStack(alignment: .leading, spacing: 22) {
             HStack {
                 Text("Layers").font(.title2.bold())
@@ -13,9 +14,9 @@ struct LayersSheet: View {
                 mapChoice("Default", symbol: "map.fill", satellite: false)
                 mapChoice("Satellite", symbol: "globe.europe.africa.fill", satellite: true)
             }
-            Toggle("3D", systemImage: "building.2.fill", isOn: $model.preferences.buildings)
-            Toggle("Traffic", systemImage: "car.side.fill", isOn: $model.preferences.traffic)
-            Toggle("Driving POIs", systemImage: "fuelpump.fill", isOn: $model.preferences.drivingPOIs)
+            Toggle("3D", systemImage: "building.2.fill", isOn: $preferences.buildings)
+            Toggle("Traffic", systemImage: "car.side.fill", isOn: $preferences.traffic)
+            Toggle("Driving POIs", systemImage: "fuelpump.fill", isOn: $preferences.drivingPOIs)
         }.padding(26).padding(.top, 6)
         .onChange(of: model.preferences.buildings) { _, _ in model.haptic.tap(); model.command(.recenter) }
         .onChange(of: model.preferences.traffic) { _, _ in model.haptic.tap() }
@@ -36,4 +37,3 @@ struct LayersSheet: View {
         }.buttonStyle(.plain)
     }
 }
-

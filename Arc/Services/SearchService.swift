@@ -24,7 +24,9 @@ struct SearchCategory: Identifiable {
     ]
 }
 
-@MainActor @Observable final class SearchService: NSObject, SearchEngineDelegate {
+// Mapbox Search 2.32 dispatches delegate callbacks to the main queue, but its
+// delegate protocol predates concurrency annotations. Check that contract at runtime.
+@MainActor @Observable final class SearchService: NSObject, @preconcurrency SearchEngineDelegate {
     private let engine = SearchEngine(locationProvider: nil, apiType: .searchBox)
     private let categoryEngine = CategorySearchEngine(locationProvider: nil, apiType: .searchBox)
     var rows: [SearchRow] = []
@@ -163,7 +165,7 @@ struct SearchCategory: Identifiable {
 }
 
 /// Each detail lookup has its own engine, so it cannot disturb an autocomplete session.
-@MainActor private final class PlaceDetailsRequest: NSObject, SearchEngineDelegate {
+@MainActor private final class PlaceDetailsRequest: NSObject, @preconcurrency SearchEngineDelegate {
     private let engine = SearchEngine(locationProvider: nil, apiType: .searchBox)
     private var completion: ((any SearchResult)?) -> Void
     init(completion: @escaping ((any SearchResult)?) -> Void) {

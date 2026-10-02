@@ -113,7 +113,7 @@ struct LaneGuidance: Identifiable {
         if generation == requestGeneration { calculating = false }
     }
     func select(_ alternative: AlternativeRoute) async {
-        if active { provider.mapboxNavigation.navigation().selectAlternativeRoute(with: alternative.id) }
+        if active { provider.mapboxNavigation.navigation().selectAlternativeRoute(with: alternative.routeId) }
         else if let routes { self.routes = await routes.selecting(alternativeRoute: alternative) }
     }
     func start() {
