@@ -12,6 +12,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
+    environment: prod
     timeout-minutes: 90
     # Fork PRs cannot access secrets. Run local contract checks in the other job.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository

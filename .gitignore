@@ -5,8 +5,8 @@
 Config/Generated/
 *.xcodeproj/
 *.xcworkspace/
-build/
-DerivedData/
+/build/
+/DerivedData/
 .swiftpm/
 .DS_Store
 *.ipa
